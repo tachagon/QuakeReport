@@ -14,18 +14,25 @@ import java.util.ArrayList;
 import java.util.Date;
 
 /**
- * Created by tachagon on 1/9/2560.
+ * An {@link EarthquakeAdapter} knows how to create a list item layout for each earthquake
+ * in the data source (a list of {@link Earthquake} objects).
+ * <p>
+ * These list item layouts will be provided to an adapter view like ListView
+ * to be displayed to the user.
  */
-
 public class EarthquakeAdapter extends ArrayAdapter<Earthquake> {
 
     /**
-     * This is our own custom constructor (it doesn't mirror a super class constructor).
-     * The context is used to inflate the layout file, and the list is the data we want
-     * to populate into the lists.
+     * The part of the location string from the USGS service that we use to determine
+     * whether or not there is a location offset present ("5km N of Cairo, Egypt").
+     */
+    private static final String LOCATION_SEPARATOR = " of ";
+
+    /**
+     * Constructs a new {@link EarthquakeAdapter}.
      *
-     * @param context     The current context. Used to inflate the layout file.
-     * @param earthquakes A List of Earthquake objects to display in a list.
+     * @param context     of the app
+     * @param earthquakes is the list of earthquakes, which is the data source of the adapter
      */
     public EarthquakeAdapter(Activity context, ArrayList<Earthquake> earthquakes) {
         // Here, we initialize the ArrayAdapter's internal storage for the context and the list.
@@ -36,22 +43,20 @@ public class EarthquakeAdapter extends ArrayAdapter<Earthquake> {
     }
 
     /**
-     * @param position
-     * @param convertView
-     * @param parent
-     * @return a list item view that displays information about the earthquake at the given position
-     * in the list of earthquakes
+     * Returns a list item view that displays information about the earthquake at the given position
+     * in the list of earthquakes.
      */
     @NonNull
     @Override
     public View getView(int position, @Nullable View convertView, @NonNull ViewGroup parent) {
-        // Check if the existing view is being reused, otherwise inflate the view
+        // Check if there is an existing list item view (called convertView) that we can reuse,
+        // otherwise, if convertView is null, then inflate a new list item layout.
         View listItemView = convertView;
         if (listItemView == null) {
             listItemView = LayoutInflater.from(getContext()).inflate(R.layout.list_item, parent, false);
         }
 
-        // Get the {@link Earthquake} object located at this position in the list
+        // Find the earthquake at the given position in the list of earthquakes
         Earthquake currentEarthquake = getItem(position);
 
         // Find the TextView with view ID magnitude
@@ -59,10 +64,44 @@ public class EarthquakeAdapter extends ArrayAdapter<Earthquake> {
         // Display the magnitude of the current earthquake in that TextView
         magnitudeTextView.setText("" + currentEarthquake.getMagnitude());
 
-        // Find the TextView with view ID location
-        TextView locationTextView = (TextView) listItemView.findViewById(R.id.location_text_view);
-        // Display the location of the current earthquake in that TextView
-        locationTextView.setText(currentEarthquake.getLocation());
+        // Get the original location string from the Earthquake object,
+        // which can be in the format of "5km N of Cairo, Egypt" or "Pacific-Antarctic Ridge".
+        String originalLocation = currentEarthquake.getLocation();
+
+        // If the original location string (i.e. "5km N of Cairo, Egypt") contains
+        // a primary location (Cairo, Egypt) and a location offset (5km N of that city)
+        // then store the primary location separately from the location offset in 2 Strings,
+        // so they can be displayed in 2 TextViews.
+        String primaryLocation;
+        String offsetLocation;
+
+        // Check whether the originalLocation string contains the " of " text
+        if (originalLocation.contains(LOCATION_SEPARATOR)) {
+            // Split the string into different parts (as an array of Strings)
+            // based on the " of " text. We expect an array of 2 Strings, where
+            // the first String will be "5km N" and the second String will be "Cairo, Egypt".
+            String[] parts = originalLocation.split(LOCATION_SEPARATOR);
+            // Location offset should be "5km N " + " of " --> "5km N of"
+            offsetLocation = parts[0] + LOCATION_SEPARATOR;
+            // Primary location should be "Cairo, Egypt"
+            primaryLocation = parts[1];
+        } else {
+            // Otherwise, there is no " of " text in the originalLocation string.
+            // Hence, set the default location offset to say "Near the".
+            offsetLocation = getContext().getString(R.string.near_the);
+            // The primary location will be the full location string "Pacific-Antarctic Ridge".
+            primaryLocation = originalLocation;
+        }
+
+        // Find the TextView with view ID offset location
+        TextView offsetLocationTextView = (TextView) listItemView.findViewById(R.id.offset_location_text_view);
+        // Display the offset location of the current earthquake in that TextView
+        offsetLocationTextView.setText(offsetLocation);
+
+        // Find the TextView with view ID primary location
+        TextView primaryLocationTextView = (TextView) listItemView.findViewById(R.id.primary_location_text_view);
+        // Display the offset location of the current earthquake in that TextView
+        primaryLocationTextView.setText(primaryLocation);
 
         // Create a new Date object from the time in milliseconds of the earthquake
         Date dateObject = new Date(currentEarthquake.getTimeInMilliseconds());
